@@ -1,36 +1,58 @@
 <!DOCTYPE html>
-
-<html>
-    <head>
-        <meta name="format-detection" content="telephone=yes">
-        <meta name="msapplication-tap-highlight" content="no">
-        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
-        <link rel="stylesheet" type="text/css" href="css/index.css">
-        <title>iMatch Cordova Demo</title>
-    </head>
-
-    <body>
-        <div class="app">
-            <h1>Gridler iMatch Cordova Demo</h1>
-            <div id="ui">
-                <button id="connectButton">Connect</button>
-                <button id="disconnectButton">Disconnect</button>
-                <button id="syncButton">Sync Date</button>
-                <button id="batteryButton">Get Battery</button>
-                <button id="updateButton">Update FW</button>
-                <button id="fingerButton">FPR</button>
-                <button id="smartcardButton">SCR</button>
-                <button id="nfcButton">NFC</button>
-            </div>        
-        <div id="message">Searching iMatch devices..</div>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="color-scheme" content="light dark">
+    <link rel="stylesheet" href="css/index.css">
+    <title>iMatch Sample</title>
+</head>
+<body>
+    <header>
+        <img src="img/logo.svg" alt="" class="logo">
+        <div>
+            <h1>iMatch Sample</h1>
+            <div id="deviceStatus" class="muted">Not connected</div>
         </div>
-        <script type="text/javascript" src="cordova.js"></script>
-        <script type="text/javascript" src="js/moment.min.js"></script>
-        <script type="text/javascript" src="js/index.js"></script>
-        <script type="text/javascript" src="js/mrz/index.js"></script>
-        <script type="text/javascript" src="js/crc/index.js"></script>
-        <script>
-            app.initialize();
-        </script>
-    </body>
+    </header>
+
+    <section id="deviceInfo" class="bar" hidden>
+        <span id="hardware"></span>
+        <span id="firmware"></span>
+        <span id="battery"></span>
+    </section>
+
+    <section class="actions">
+        <button id="connectButton">Connect</button>
+        <button id="disconnectButton" disabled>Disconnect</button>
+        <button id="fingerButton" disabled>Fingerprint</button>
+        <button id="smartcardButton" disabled>Smartcard</button>
+        <button id="nfcButton" disabled>Passport</button>
+        <button id="updateButton" disabled>Update</button>
+        <button id="cancelUpdateButton" class="danger" hidden>Cancel update</button>
+        <button id="clearButton" class="secondary">Clear log</button>
+    </section>
+
+    <section id="devices" class="devices" hidden></section>
+
+    <section class="field">
+        <label for="mrzInput">MRZ (two or three lines as printed on the document)</label>
+        <textarea id="mrzInput" rows="3" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+        <div id="mrzHint" class="muted"></div>
+    </section>
+
+    <section id="progress" class="progress" hidden>
+        <div id="progressLabel"></div>
+        <div class="track"><div id="progressBar" class="fill"></div></div>
+    </section>
+
+    <section id="log" class="log" aria-live="polite"></section>
+
+    <script src="cordova.js"></script>
+    <script src="js/mrz.js"></script>
+    <script src="js/imatch-events.js"></script>
+    <script src="js/app.js"></script>
+    <script>app.initialize();</script>
+</body>
 </html>
