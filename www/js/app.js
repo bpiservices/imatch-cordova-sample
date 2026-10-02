@@ -453,6 +453,12 @@ var app = {
                         app.log(method === 'perform_aa' ? 'Active authentication' : 'Chip authentication');
                         app.logObject(data);
                         break;
+                    case 'read_bac':
+                        // iOS reports a failed BAC as a plain read_bac event, "1" means it worked.
+                        if (typeof data === 'string' && data !== '1') {
+                            app.log('Access control BAC failed: ' + data + '. Check the MRZ.', 'error');
+                        }
+                        break;
                     case 'error':
                         app.log('Document error: ' + iMatchEvents.errorText(event), 'error');
                         break;
@@ -462,6 +468,11 @@ var app = {
                             app.logObject(data);
                         } else {
                             app.log(method);
+                            if (data && typeof data === 'object') {
+                                app.logObject(data);
+                            } else if (data !== undefined && data !== null && data !== '') {
+                                app.logObject({ data: data });
+                            }
                         }
                         break;
                 }
