@@ -1,4 +1,7 @@
-.idea
-node_modules
+node_modules/
 package-lock.json
-plugins
+platforms/
+plugins/
+imatch-sdk/
+.idea/
+.DS_Store
