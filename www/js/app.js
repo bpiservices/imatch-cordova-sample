@@ -12,7 +12,9 @@ var app = {
         updating: false,
         captureTimer: null,
         nfcTimer: null,
-        nfcSeen: {}
+        nfcSeen: {},
+        nfcCheckedGroups: 0,
+        nfcCheckFailed: false
     },
 
     initialize: function () {
@@ -34,6 +36,7 @@ var app = {
             app.log('cordova-plugin-imatch is not installed', 'error');
             return;
         }
+        app.$('connectButton').disabled = false;
 
         iMatch.setReceiveEventListener(app.onDeviceEvent, function (error) {
             app.log('Event listener error: ' + iMatchEvents.errorText(error), 'error');
@@ -94,17 +97,11 @@ var app = {
 
         iMatch.connect(name,
             function (response) {
-                var data = response.data;
-                if (response.method === 'connect' && data && data.connected === false) {
-                    app.log('Connection failed: ' + (data.message || 'unknown reason'), 'error');
+                // The plugin answers connect when the link is up and reports later changes as connectionchange.
+                var connected = !!(response.data && response.data.connected);
+                if (!connected) {
                     app.setConnected(false);
-                    return;
-                }
-                if (response.method === 'disconnect' || (data && data.connected === false)) {
-                    app.setConnected(false);
-                    return;
-                }
-                if (data && data.connected === true && !app.state.connected) {
+                } else if (!app.state.connected) {
                     app.setConnected(true);
                     app.onConnected();
                 }
@@ -212,7 +209,7 @@ var app = {
         }
 
         var start = function (hardware) {
-            if (hardware === 'iMatch45' || hardware === 'iMatch50') {
+            if (hardware === 'iMatch45' || hardware === 'iMatch50' || hardware === 'iMatch60') {
                 app.captureIMatch45();
             } else if (hardware === 'iMatch20') {
                 app.captureFAP20();
@@ -275,18 +272,14 @@ var app = {
                         iMatch.powerOffFingerprint(true);
                         break;
                     case 'error':
-                        app.log('Fingerprint error: ' + iMatchEvents.errorText(event), 'error');
-                        app.finishCapture();
+                        app.captureFailed(event);
                         break;
                     default:
                         app.log(event.method + (data !== undefined && typeof data !== 'object' ? ': ' + data : ''));
                         break;
                 }
             },
-            function (error) {
-                app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
-                app.finishCapture();
-            },
+            app.captureFailed,
             ['WSQ', 'PNG']
         );
     },
@@ -314,17 +307,13 @@ var app = {
                         iMatch.powerOffFingerprint();
                         break;
                     case 'error':
-                        app.log('Fingerprint error: ' + iMatchEvents.errorText(event), 'error');
-                        app.finishCapture();
+                        app.captureFailed(event);
                         break;
                     default:
                         break;
                 }
             },
-            function (error) {
-                app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
-                app.finishCapture();
-            }
+            app.captureFailed
         );
     },
 
@@ -359,6 +348,14 @@ var app = {
         clearTimeout(app.state.captureTimer);
         app.state.captureTimer = null;
         app.hideProgress();
+    },
+
+    captureFailed: function (error) {
+        app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
+        app.finishCapture();
+        if (app.state.connected) {
+            iMatch.powerOffFingerprint();
+        }
     },
 
     // ------------------------------------------------------------------ smartcard
@@ -402,6 +399,8 @@ var app = {
 
         app.saveMrz();
         app.state.nfcSeen = {};
+        app.state.nfcCheckedGroups = 0;
+        app.state.nfcCheckFailed = false;
         app.log('Reading document, hold it against the NFC antenna');
 
         iMatch.scanPassport(parsed.lines.join('\n'),
@@ -449,6 +448,12 @@ var app = {
                         app.log(method === 'perform_aa' ? 'Active authentication' : 'Chip authentication');
                         app.logObject(data);
                         break;
+                    case 'read_bac':
+                        // iOS reports a failed BAC as a plain read_bac event, "1" means it worked.
+                        if (typeof data === 'string' && data !== '1') {
+                            app.log('Access control BAC failed: ' + data + '. Check the MRZ.', 'error');
+                        }
+                        break;
                     case 'error':
                         app.log('Document error: ' + iMatchEvents.errorText(event), 'error');
                         break;
@@ -458,6 +463,11 @@ var app = {
                             app.logObject(data);
                         } else {
                             app.log(method);
+                            if (data && typeof data === 'object') {
+                                app.logObject(data);
+                            } else if (data !== undefined && data !== null && data !== '') {
+                                app.logObject({ data: data });
+                            }
                         }
                         break;
                 }
@@ -480,15 +490,23 @@ var app = {
         clearTimeout(app.state.nfcTimer);
         app.state.nfcTimer = setTimeout(function () {
             var seen = app.state.nfcSeen;
-            if (!seen.read_sod || !seen.read_dg1 || seen.verified) { return; }
-            seen.verified = true;
+            var groups = Object.keys(seen)
+                .filter(function (method) { return /^read_dg\d+$/.test(method); })
+                .map(function (method) { return parseInt(method.replace('read_dg', ''), 10); })
+                .sort(function (first, second) { return first - second; });
+
+            // The check only covers what was read so far, so run it again when more data groups came in.
+            if (!seen.read_sod || !seen.read_dg1 || app.state.nfcCheckFailed || groups.length === app.state.nfcCheckedGroups) { return; }
+            app.state.nfcCheckedGroups = groups.length;
+            var label = 'Passive authentication (' + groups.map(function (number) { return 'DG' + number; }).join(', ') + '): ';
 
             iMatch.validateComputedHashes(
                 function (response) {
                     var valid = response.data && response.data.validated;
-                    app.log('Passive authentication: ' + (valid ? 'hashes valid' : 'hash mismatch'), valid ? 'ok' : 'error');
+                    app.log(label + (valid ? 'hashes valid' : 'hash mismatch'), valid ? 'ok' : 'error');
                 },
                 function (error) {
+                    app.state.nfcCheckFailed = true;
                     app.log('Passive authentication: ' + iMatchEvents.errorText(error), 'warn');
                 }
             );
