@@ -97,17 +97,11 @@ var app = {
 
         iMatch.connect(name,
             function (response) {
-                var data = response.data;
-                if (response.method === 'connect' && data && data.connected === false) {
-                    app.log('Connection failed: ' + (data.message || 'unknown reason'), 'error');
+                // The plugin answers connect when the link is up and reports later changes as connectionchange.
+                var connected = !!(response.data && response.data.connected);
+                if (!connected) {
                     app.setConnected(false);
-                    return;
-                }
-                if (response.method === 'disconnect' || (data && data.connected === false)) {
-                    app.setConnected(false);
-                    return;
-                }
-                if (data && data.connected === true && !app.state.connected) {
+                } else if (!app.state.connected) {
                     app.setConnected(true);
                     app.onConnected();
                 }
