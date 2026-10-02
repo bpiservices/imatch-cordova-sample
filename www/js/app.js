@@ -12,7 +12,9 @@ var app = {
         updating: false,
         captureTimer: null,
         nfcTimer: null,
-        nfcSeen: {}
+        nfcSeen: {},
+        nfcCheckedGroups: 0,
+        nfcCheckFailed: false
     },
 
     initialize: function () {
@@ -402,6 +404,8 @@ var app = {
 
         app.saveMrz();
         app.state.nfcSeen = {};
+        app.state.nfcCheckedGroups = 0;
+        app.state.nfcCheckFailed = false;
         app.log('Reading document, hold it against the NFC antenna');
 
         iMatch.scanPassport(parsed.lines.join('\n'),
@@ -480,15 +484,23 @@ var app = {
         clearTimeout(app.state.nfcTimer);
         app.state.nfcTimer = setTimeout(function () {
             var seen = app.state.nfcSeen;
-            if (!seen.read_sod || !seen.read_dg1 || seen.verified) { return; }
-            seen.verified = true;
+            var groups = Object.keys(seen)
+                .filter(function (method) { return /^read_dg\d+$/.test(method); })
+                .map(function (method) { return parseInt(method.replace('read_dg', ''), 10); })
+                .sort(function (first, second) { return first - second; });
+
+            // The check only covers what was read so far, so run it again when more data groups came in.
+            if (!seen.read_sod || !seen.read_dg1 || app.state.nfcCheckFailed || groups.length === app.state.nfcCheckedGroups) { return; }
+            app.state.nfcCheckedGroups = groups.length;
+            var label = 'Passive authentication (' + groups.map(function (number) { return 'DG' + number; }).join(', ') + '): ';
 
             iMatch.validateComputedHashes(
                 function (response) {
                     var valid = response.data && response.data.validated;
-                    app.log('Passive authentication: ' + (valid ? 'hashes valid' : 'hash mismatch'), valid ? 'ok' : 'error');
+                    app.log(label + (valid ? 'hashes valid' : 'hash mismatch'), valid ? 'ok' : 'error');
                 },
                 function (error) {
+                    app.state.nfcCheckFailed = true;
                     app.log('Passive authentication: ' + iMatchEvents.errorText(error), 'warn');
                 }
             );
