@@ -215,7 +215,7 @@ var app = {
         }
 
         var start = function (hardware) {
-            if (hardware === 'iMatch45' || hardware === 'iMatch50') {
+            if (hardware === 'iMatch45' || hardware === 'iMatch50' || hardware === 'iMatch60') {
                 app.captureIMatch45();
             } else if (hardware === 'iMatch20') {
                 app.captureFAP20();
