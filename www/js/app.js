@@ -36,6 +36,7 @@ var app = {
             app.log('cordova-plugin-imatch is not installed', 'error');
             return;
         }
+        app.$('connectButton').disabled = false;
 
         iMatch.setReceiveEventListener(app.onDeviceEvent, function (error) {
             app.log('Event listener error: ' + iMatchEvents.errorText(error), 'error');
