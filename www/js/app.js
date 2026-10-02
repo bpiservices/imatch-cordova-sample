@@ -277,18 +277,14 @@ var app = {
                         iMatch.powerOffFingerprint(true);
                         break;
                     case 'error':
-                        app.log('Fingerprint error: ' + iMatchEvents.errorText(event), 'error');
-                        app.finishCapture();
+                        app.captureFailed(event);
                         break;
                     default:
                         app.log(event.method + (data !== undefined && typeof data !== 'object' ? ': ' + data : ''));
                         break;
                 }
             },
-            function (error) {
-                app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
-                app.finishCapture();
-            },
+            app.captureFailed,
             ['WSQ', 'PNG']
         );
     },
@@ -316,17 +312,13 @@ var app = {
                         iMatch.powerOffFingerprint();
                         break;
                     case 'error':
-                        app.log('Fingerprint error: ' + iMatchEvents.errorText(event), 'error');
-                        app.finishCapture();
+                        app.captureFailed(event);
                         break;
                     default:
                         break;
                 }
             },
-            function (error) {
-                app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
-                app.finishCapture();
-            }
+            app.captureFailed
         );
     },
 
@@ -361,6 +353,14 @@ var app = {
         clearTimeout(app.state.captureTimer);
         app.state.captureTimer = null;
         app.hideProgress();
+    },
+
+    captureFailed: function (error) {
+        app.log('Fingerprint error: ' + iMatchEvents.errorText(error), 'error');
+        app.finishCapture();
+        if (app.state.connected) {
+            iMatch.powerOffFingerprint();
+        }
     },
 
     // ------------------------------------------------------------------ smartcard
