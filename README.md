@@ -51,6 +51,8 @@ After a new SDK drop, run `npm run plugin:unlink` so the plugin is installed aga
 - **Fingerprint** starts a two finger capture on iMatch 45 and 50 (`scanFingerprint`) or a single
   finger capture on iMatch 20 (`scanFingerprintFAP20`). `fp_finished` is treated as the
   completion signal; a 60 second timeout switches the reader off if it never arrives.
+  **Cancel capture** stops a running iMatch 45/50 capture (`cancelFingerprint`, plugin 2.1.0 and
+  firmware 1.12.5.4 or newer).
 - **Smartcard** reads a card with a known ATR and logs the parsed fields.
 - **Passport** reads the document whose MRZ is typed in the text field.
   DG1 and DG2 are shown.

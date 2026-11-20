@@ -22,6 +22,7 @@ var app = {
         app.$('connectButton').addEventListener('click', app.connectPressed);
         app.$('disconnectButton').addEventListener('click', app.disconnectPressed);
         app.$('fingerButton').addEventListener('click', app.fingerprintPressed);
+        app.$('cancelCaptureButton').addEventListener('click', app.cancelCapturePressed);
         app.$('smartcardButton').addEventListener('click', app.smartcardPressed);
         app.$('nfcButton').addEventListener('click', app.passportPressed);
         app.$('updateButton').addEventListener('click', app.updatePressed);
@@ -235,6 +236,8 @@ var app = {
     captureIMatch45: function () {
         app.log('Fingerprint capture: place two fingers on the sensor');
         app.startCaptureTimer();
+        // cancelFingerprint needs cordova-plugin-imatch 2.1.0
+        app.$('cancelCaptureButton').hidden = typeof iMatch.cancelFingerprint !== 'function';
 
         iMatch.scanFingerprint('FLAT_TWO_FINGERS', false, true,
             function (event) {
@@ -271,6 +274,18 @@ var app = {
                         app.finishCapture();
                         iMatch.powerOffFingerprint(true);
                         break;
+                    case 'cancel':
+                        if (data === '1') {
+                            app.log('Capture cancelled', 'warn');
+                            app.finishCapture();
+                            iMatch.powerOffFingerprint(true);
+                        } else if (data === '0') {
+                            app.log('Capture cancelled, the reader was switched off', 'warn');
+                            app.finishCapture();
+                        } else {
+                            app.log('Cancel is not supported by this firmware (needs 1.12.5.4)', 'warn');
+                        }
+                        break;
                     case 'error':
                         app.captureFailed(event);
                         break;
@@ -282,6 +297,13 @@ var app = {
             app.captureFailed,
             ['WSQ', 'PNG']
         );
+    },
+
+    cancelCapturePressed: function () {
+        app.log('Cancelling the capture');
+        iMatch.cancelFingerprint(null, function (error) {
+            app.log('Cancel failed: ' + iMatchEvents.errorText(error), 'error');
+        });
     },
 
     captureFAP20: function () {
@@ -339,6 +361,7 @@ var app = {
         clearTimeout(app.state.captureTimer);
         app.state.captureTimer = setTimeout(function () {
             app.state.captureTimer = null;
+            app.$('cancelCaptureButton').hidden = true;
             app.log('No capture completion within ' + (app.FP_CAPTURE_TIMEOUT_MS / 1000) + ' s, switching the reader off', 'warn');
             iMatch.powerOffFingerprint();
         }, app.FP_CAPTURE_TIMEOUT_MS);
@@ -347,6 +370,7 @@ var app = {
     finishCapture: function () {
         clearTimeout(app.state.captureTimer);
         app.state.captureTimer = null;
+        app.$('cancelCaptureButton').hidden = true;
         app.hideProgress();
     },
 
